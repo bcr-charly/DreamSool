@@ -34,7 +34,7 @@ const Sool Livre_des_ames[] = {
         .croissance_attaqueP = 1, .croissance_attaqueS = 1,
         .croissance_defenseP = 1,  .croissance_defenseS = 2,
         .croissance_pv = 10,
-        .type = &Table-des_types[PLANTE],
+        .type = &Table_des_types[PLANTE],
         .image = "ame_plante.png"
     },
     {

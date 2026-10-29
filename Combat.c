@@ -5,25 +5,38 @@
 
 int calculer_degats(const Equipe *equipe, const ResultatAlignement *res, const Niveau *niveau) {
     float total = 0.0f;
+    float totalP = 0.0f;
+    float totalS = 0.0f;
     for (int i = 0; i < res->nb; i++) {
         const Alignement *a = &res->liste[i];
         if (a->sool == SOOL_PIERRE || a->sool == SOOL_METAL)
             continue;
-        const Sool *sool = equipe->equipe[a->sool - 1];
-        float mult_affinite = multiplicateur_affinite(sool->type->id, niveau->type_boss);
+        if (a->sool < 1 || a->sool > NB_SOOLS_EQUIPE)
+            continue;
+        const SoolEnJeu *sool = &equipe->sools[a->sool - 1];
+        float attaque = (sool->mode == MODE_SPECIAL) ? sool->attaqueS : sool->attaqueP;
+        float mult_affinite = multiplicateur_affinite(sool->base->type->id, niveau->type_boss);
         float mult_croix = a->est_croix ? 1.1f : 1.0f;
-        total += sool->attaqueP * mult_affinite * mult_croix * a->valeur;
+        float degats = attaque * mult_affinite * mult_croix * a->valeur;
+        total += degats;
+        if (sool->mode == MODE_SPECIAL)
+            totalS += degats;
+        else
+            totalP += degats;
     }
-    if (res->nb > 0)
-        total -= niveau->defenseP_boss;
+    if (total > 0.0f) {
+        int mode_dominant = (totalS > totalP) ? MODE_SPECIAL : MODE_PHYSIQUE;
+        int defense_boss = (mode_dominant == MODE_SPECIAL) ? niveau->defenseS_boss : niveau->defenseP_boss;
+        total -= defense_boss;
+    }
     if (total < 0.0f)
         total = 0.0f;
     return (int) total;
 }
 
-static void afficher_etat(const char *titre, const Grille *grille) {
+static void afficher_etat(const char *titre, const Grille *grille, const Equipe *equipe) {
     printf("\n--- %s ---\n", titre);
-    afficher_grille(grille);
+    afficher_grille(grille, equipe);
     fflush(stdout);
 }
 
@@ -43,13 +56,13 @@ int resoudre_tour(Grille *grille, const Equipe *equipe, const Niveau *niveau, in
             etape++;
             char titre[64];
             snprintf(titre, sizeof(titre), "Etape %d : suppression", etape);
-            afficher_etat(titre, grille);
+            afficher_etat(titre, grille, equipe);
             continue;
         }
         int chute = faire_descendre(grille);
         int rempli = remplir_grille(grille, equipe);
         if (chute || rempli) {
-            afficher_etat("Chute des tuiles", grille);
+            afficher_etat("Chute des tuiles", grille, equipe);
             continue;
         }
         break;

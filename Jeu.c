@@ -3,6 +3,7 @@
 #include "Entraves.h"
 #include "Alignements.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 static void vider_ligne(void) {
     int ch;
@@ -65,16 +66,20 @@ static void appliquer_entrave_boss(Grille *grille, const Equipe *equipe, const N
     if (*indice_lot >= niveau->nb_lots_entraves)
         *indice_lot = 0;
     printf("\nLe boss lance une entrave !\n");
-    afficher_grille(grille);
+    afficher_grille(grille, equipe);
     while (!coup_jouable(grille)) {
         printf("Aucun coup jouable : regeneration de la grille (entraves retirees).\n");
         generer_grille(grille, equipe);
-        afficher_grille(grille);
+        afficher_grille(grille, equipe);
     }
 }
 
-int jouer_niveau(const Niveau *niveau, const Sool *equipe_sools) {
-    Equipe equipe;
+static float taux_capture(int nb_coups, int coups_restants) {
+    float ratio = (float) coups_restants / (float) nb_coups;
+    return ratio * 100.0f;
+}
+
+int jouer_niveau(const Niveau *niveau, Equipe *equipe, Sauvegarde *sauv) {
     Grille grille;
     int pv_boss = niveau->pv_boss;
     int coups_restants = niveau->nb_coups;
@@ -83,18 +88,18 @@ int jouer_niveau(const Niveau *niveau, const Sool *equipe_sools) {
     int tour = 0;
 
     init_affinites();
-    init_equipe(&equipe, equipe_sools);
-    generer_grille(&grille, &equipe);
+    recalculer_pv_equipe(equipe);
+    generer_grille(&grille, equipe);
 
-    printf("Debut du %s !\n", niveau->nom);
-    afficher_etat_combat(&equipe, niveau, pv_boss, coups_restants, coups_avant_entrave);
-    afficher_grille(&grille);
+    printf("Debut du Niveau %d : %s !\n", niveau->id, niveau->nom);
+    afficher_etat_combat(equipe, niveau, pv_boss, coups_restants, coups_avant_entrave);
+    afficher_grille(&grille, equipe);
 
-    while (pv_boss > 0 && coups_restants > 0 && equipe.pv_total > 0) {
+    while (pv_boss > 0 && coups_restants > 0 && equipe->pv_total > 0) {
         if (!coup_jouable(&grille)) {
             printf("Aucun coup jouable : regeneration de la grille (entraves retirees).\n");
-            generer_grille(&grille, &equipe);
-            afficher_grille(&grille);
+            generer_grille(&grille, equipe);
+            afficher_grille(&grille, equipe);
         }
 
         int l1, c1, l2, c2;
@@ -118,43 +123,60 @@ int jouer_niveau(const Niveau *niveau, const Sool *equipe_sools) {
         }
 
         tour++;
-        int degats = resoudre_tour(&grille, &equipe, niveau, &pv_boss);
+        int degats = resoudre_tour(&grille, equipe, niveau, &pv_boss);
         coups_restants--;
         coups_avant_entrave--;
 
         printf("\nDegats infliges au boss ce tour : %d\n", degats);
 
-        int degats_saignement = tick_saignement(&grille, &equipe);
+        int degats_saignement = tick_saignement(&grille, equipe);
         int degats_boss = niveau->attaqueP_boss;
-        equipe.pv_total -= degats_saignement + degats_boss;
+        equipe->pv_total -= degats_saignement + degats_boss;
         if (degats_saignement > 0)
             printf("Saignement : -%d PV\n", degats_saignement);
         printf("Le boss attaque : -%d PV\n", degats_boss);
-        if (equipe.pv_total < 0)
-            equipe.pv_total = 0;
+        if (equipe->pv_total < 0)
+            equipe->pv_total = 0;
 
         vieillir_metaux(&grille);
 
-        afficher_etat_combat(&equipe, niveau, pv_boss, coups_restants, coups_avant_entrave);
-        afficher_grille(&grille);
+        afficher_etat_combat(equipe, niveau, pv_boss, coups_restants, coups_avant_entrave);
+        afficher_grille(&grille, equipe);
 
         if (pv_boss <= 0)
             break;
 
         if (coups_avant_entrave <= 0 && tour >= 2) {
-            appliquer_entrave_boss(&grille, &equipe, niveau, &indice_lot);
+            appliquer_entrave_boss(&grille, equipe, niveau, &indice_lot);
             coups_avant_entrave = niveau->delai_entrave;
         }
     }
 
     if (pv_boss <= 0) {
         printf("\nVICTOIRE ! Le boss est vaincu en %d coups.\n", niveau->nb_coups - coups_restants);
+        int boss_id = niveau->sool_boss;
+        if (!sool_est_debloque(sauv, boss_id)) {
+            float taux = taux_capture(niveau->nb_coups, coups_restants);
+            int jet = rand() % 100;
+            printf("Taux de capture : %.0f%% (tirage : %d)\n", taux, jet);
+            if (jet < (int) taux) {
+                debloquer_sool(sauv, boss_id);
+                printf("CAPTURE ! Vous avez obtenu : %s !\n", Livre_des_ames[boss_id - 1].nom);
+            } else {
+                printf("La sool s'est echappee...\n");
+            }
+        }
+        if (niveau->id >= sauv->niveau_max && niveau->id < Nb_niveaux)
+            sauv->niveau_max = niveau->id + 1;
+        sauv->victoires++;
         return VICTOIRE;
     }
-    if (equipe.pv_total <= 0) {
+    if (equipe->pv_total <= 0) {
         printf("\nDEFAITE : votre equipe n'a plus de points de vie.\n");
+        sauv->defaites++;
         return DEFAITE_PV;
     }
     printf("\nDEFAITE : plus de coups restants, le boss survit avec %d PV.\n", pv_boss);
+    sauv->defaites++;
     return DEFAITE_COUP;
 }

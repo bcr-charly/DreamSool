@@ -3,7 +3,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static const char LETTRES_SOOLS[NB_SOOLS_EQUIPE] = { 'E', 'F', 'P', 'T' };
+static char lettre_type(TypeId type) {
+    switch (type) {
+    case EAU: return 'E';
+    case FEU: return 'F';
+    case PLANTE: return 'P';
+    case TERRE: return 'T';
+    case AIR: return 'A';
+    case ENERGIE: return 'N';
+    case LUMIERE: return 'L';
+    case OBSCURE: return 'O';
+    case METAL: return 'M';
+    case POISON: return 'V';
+    case PLASMA: return 'X';
+    case SPECTRE: return 'S';
+    case MAGMA: return 'G';
+    case SON: return 'Z';
+    case GLACE: return 'I';
+    case SABLE: return 'B';
+    case SPORE: return 'R';
+    case ABYSSE: return 'Y';
+    default: return '?';
+    }
+}
 
 int est_vide(const Case *c) {
     return c->sool == 0 && c->entrave == RIEN;
@@ -28,15 +50,6 @@ static int grille_stable(const Grille *grille) {
     return detection_alignement(grille, &res) == 0.0f;
 }
 
-void init_equipe(Equipe *equipe, const Sool *equipe_sools) {
-    equipe->pv_total = 0;
-    for (int i = 0; i < NB_SOOLS_EQUIPE; i++) {
-        equipe->equipe[i] = &equipe_sools[i];
-        equipe->pv_total += equipe_sools[i].pv;
-    }
-    equipe->pv_max = equipe->pv_total;
-}
-
 void generer_grille(Grille *grille, const Equipe *equipe) {
     for (int l = 0; l < TAILLE_GRILLE; l++)
         for (int c = 0; c < TAILLE_GRILLE; c++)
@@ -59,7 +72,7 @@ int couleur_case(const Case *c) {
     return c->sool;
 }
 
-void afficher_grille(const Grille *grille) {
+void afficher_grille(const Grille *grille, const Equipe *equipe) {
     printf("    1 2 3 4 5 6\n");
     printf("  +------------+\n");
     for (int l = 0; l < TAILLE_GRILLE; l++) {
@@ -73,9 +86,11 @@ void afficher_grille(const Grille *grille) {
             } else if (cs->entrave == ENTRAVE_METAL) {
                 printf("M ");
             } else if (cs->saignement) {
-                printf("%c ", LETTRES_SOOLS[cs->sool - 1] + 32);
+                char lettre = lettre_type(equipe->sools[cs->sool - 1].base->type->id);
+                printf("%c ", lettre + 32);
             } else {
-                printf("%c ", LETTRES_SOOLS[cs->sool - 1]);
+                char lettre = lettre_type(equipe->sools[cs->sool - 1].base->type->id);
+                printf("%c ", lettre);
             }
         }
         printf("|\n");

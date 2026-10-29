@@ -18,6 +18,7 @@ typedef struct {
     int defenseP_boss;
     int defenseS_boss;
     TypeId type_boss;
+    int sool_boss;
     int nb_coups;
     int delai_entrave;
     int delai_attaque;

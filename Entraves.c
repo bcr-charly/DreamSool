@@ -69,7 +69,7 @@ static int alignement_en_feu(const ResultatAlignement *res, const Equipe *equipe
         if (!dedans)
             continue;
         if (a->sool >= 1 && a->sool <= NB_SOOLS_EQUIPE) {
-            TypeId type = equipe->equipe[a->sool - 1]->type->id;
+            TypeId type = equipe->sools[a->sool - 1].base->type->id;
             return type == FEU || type == MAGMA || type == ENERGIE || type == LUMIERE;
         }
     }
@@ -132,8 +132,10 @@ int tick_saignement(const Grille *grille, const Equipe *equipe) {
     for (int l = 0; l < TAILLE_GRILLE; l++) {
         for (int c = 0; c < TAILLE_GRILLE; c++) {
             const Case *cs = &grille->cases[l][c];
-            if (cs->saignement && cs->sool >= 1 && cs->sool <= NB_SOOLS_EQUIPE)
-                degats += equipe->equipe[cs->sool - 1]->attaqueP;
+            if (cs->saignement && cs->sool >= 1 && cs->sool <= NB_SOOLS_EQUIPE) {
+                const SoolEnJeu *s = &equipe->sools[cs->sool - 1];
+                degats += (s->mode == MODE_SPECIAL) ? s->attaqueS : s->attaqueP;
+            }
         }
     }
     return degats;
